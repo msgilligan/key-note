@@ -7,6 +7,8 @@ import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Hyperlink;
 import javafx.scene.control.Label;
+import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
@@ -17,9 +19,11 @@ import java.net.URI;
 public class KeyNoteApp implements FxForegroundApp.FxApplicationCompat  {
     private static final URI githubRepoUri = URI.create("https://github.com/SupernautApp/SupernautFX");
     private final BrowserService browserService;
+    private final NotePlayer notePlayer;
 
     public KeyNoteApp(BrowserService browserService) {
         this.browserService = browserService;
+        notePlayer = new NotePlayer();
     }
 
     @Override
@@ -36,7 +40,28 @@ public class KeyNoteApp implements FxForegroundApp.FxApplicationCompat  {
         var vbox        = new VBox(label, hyperlink);
         vbox.setAlignment(Pos.CENTER);
         hyperlink.setOnAction(e -> browserService.showDocument(githubRepoUri));
-        return new Scene(vbox, 350, 100);
+        var scene = new Scene(vbox, 350, 100);
+        scene.addEventFilter(MouseEvent.MOUSE_PRESSED, this::handleMousePressed);
+        scene.addEventFilter(MouseEvent.MOUSE_RELEASED, this::handleMouseReleased);
+        return scene;
+    }
+
+    public void handleMousePressed(MouseEvent mouseEvent) {
+        MouseButton button = mouseEvent.getButton();
+        System.out.println(mouseEvent.getEventType());
+        System.out.println(mouseEvent.getButton());
+        if (mouseEvent.getButton().equals(MouseButton.SECONDARY)) {
+            notePlayer.play();
+        }
+    }
+
+    public void handleMouseReleased(MouseEvent mouseEvent) {
+        MouseButton button = mouseEvent.getButton();
+        System.out.println(mouseEvent.getEventType());
+        if (mouseEvent.getButton().equals(MouseButton.SECONDARY)) {
+            notePlayer.stop();
+        }
+
     }
 
     public static void main(String[] args) {

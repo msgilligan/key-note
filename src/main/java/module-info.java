@@ -5,6 +5,8 @@ module hellofx {
     requires javafx.graphics;
     requires javafx.controls;
 
+    requires java.desktop;  // For Sound
+
     requires app.supernaut.fx;
     requires jakarta.inject;
 
