@@ -1,0 +1,114 @@
+plugins {
+    id 'groovy'
+    id 'application'
+    id 'org.openjfx.javafxplugin'           version '0.0.9'
+    id 'org.beryx.jlink'                    version '2.23.3'
+}
+
+def appName = 'Key-Note'
+version = keyNoteAppVersion
+application {
+    mainModule = 'keynote'
+    mainClass = 'com.msgilligan.keynote.KeyNoteApp'
+}
+
+repositories {
+    mavenCentral()
+    maven { url 'https://gitlab.com/api/v4/projects/26584840/packages/maven' /* gitlab-supernaut-maven */ }
+}
+
+dependencies {
+    implementation "app.supernaut:supernaut-fx:${supernautVersion}"
+    implementation 'jakarta.inject:jakarta.inject-api:2.0.0'
+    implementation "io.micronaut:micronaut-inject:${micronautVersion}"  // For Micronaut annotations eg. @Factory and generated code
+
+    runtimeOnly "app.supernaut:supernaut-fx-micronaut:${supernautVersion}"  // To provide the ServiceLoader implementation of FxLauncher
+
+    annotationProcessor "io.micronaut:micronaut-inject-java:${micronautVersion}"
+
+    implementation "org.slf4j:slf4j-jdk14:${slf4jVersion}"
+    testImplementation "org.codehaus.groovy:groovy:${groovyVersion}:"
+    testImplementation("org.spockframework:spock-core:${spockVersion}") {
+        exclude module: "groovy-all"
+    }
+
+    testRuntimeOnly "net.bytebuddy:byte-buddy:1.10.9"                 // allows Spock to mock classes (in addition to interfaces)
+    testRuntimeOnly "org.objenesis:objenesis:3.1"                     // Allow Spock to mock classes with constructor arguments
+    testRuntimeOnly "org.slf4j:slf4j-jdk14:${slf4jVersion}"           // Runtime implementation of slf4j
+}
+
+javafx {
+    version = javaFxVersion
+    modules = ['javafx.graphics', 'javafx.controls', 'javafx.fxml']
+}
+
+patchModules.config = [
+        "java.annotation=jsr305-3.0.2.jar"
+]
+
+modularity.disableEffectiveArgumentsAdjustment()
+
+compileJava {
+    options.release = 11
+    options.compilerArgs << '-Xlint:deprecation' << '-Xlint:unchecked'
+}
+
+test {
+    useJUnitPlatform()          // We're using Spock 2.0 and JUnit 5
+    moduleOptions {
+        runOnClasspath = true
+    }
+}
+run {
+    moduleOptions {
+        addModules = ['app.supernaut.fx.micronaut']
+    }
+}
+
+def os = org.gradle.internal.os.OperatingSystem.current()
+def signJPackageImages = false
+
+jlink {
+    addExtraDependencies("javafx")
+    options = ['--strip-debug', '--compress', '2', '--no-header-files', '--no-man-pages', '--add-modules', 'app.supernaut.fx.micronaut']
+    launcher {
+        name = appName
+        jvmArgs = []
+    }
+    mergedModule {
+        requires 'java.logging'
+
+        requires 'javafx.graphics'
+        requires 'javafx.controls'
+        requires 'javafx.fxml'
+
+        forceMerge 'org.slf4j'
+    }
+    jpackage {
+        skipInstaller = false
+
+        // Which installers to make
+        if (os.linux) {
+            installerType = null            // default is ['rpm', 'deb']
+        } else if (os.macOsX) {
+            installerType = 'dmg'           // default is ['pkg', 'dmg']
+        } else if (os.windows) {
+            installerType = 'exe'           // default is ['exe', 'msi']
+        }
+
+        def appVersionForJpackage = version  // Be careful here, some version strings won't work with all installers
+
+        imageOptions = ["--verbose", "--app-version", appVersionForJpackage]
+        installerOptions = ["--app-version", appVersionForJpackage]
+        if (os.macOsX) {
+            // No resource-dir for now // imageOptions += [ '--resource-dir', "${projectDir}/src/macos/resource-dir" ]
+            if (signJPackageImages) {
+                logger.warn "Setting --mac-sign in jpackage imageOptions"
+                imageOptions += [ '--mac-sign' ]
+            }
+        } else if (os.windows) {
+            installerOptions += ['--win-dir-chooser', '--win-menu', '--win-shortcut']
+        }
+
+    }
+}
